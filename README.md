@@ -7,3 +7,4 @@ Frode Eika Sandnes, A Creativity Tool for Coursework Feedback: Towards a Framewo
 The feedback messages are represented in JSON format in the configuration.js file.
 
 Test a live demo of the example here:
+https://frode-sandnes.github.io/FEEDBACK/
