@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tilbakemedlinger</title>
+    <style>
+        body
+            {
+            color:grey;
+            background-color:black;
+            font-family:sans-serif;
+            }
+        .wrapper 
+            {
+            display: grid;
+            grid-template-columns: 34% 14% 49%;
+            }
+        .left 
+            {
+            text-align: right;  
+            padding-bottom: 2%;
+            }
+        .center
+            {
+            text-align: center;                  
+            }
+        .right      
+            {
+            text-align: left;  
+            padding-bottom: 2%;            
+            }
+    </style>    
+    <script src="configuration.js" defer></script>
+</head>
+
+
+<body>
+    <button id="copy" onclick="copytoTclipboard()" style="background:hsl(120,50%,70%)">Copy feedback to clipboard</button>
+    <button id="clear" onclick="document.location.reload(true)" style="background:hsl(0,50%,70%)">Clean form</button>
+
+    <template id="category-template">
+        <div class="wrapper">
+            <div class="left"></div>
+            <div class="center"></div>
+            <div class="right"></div>
+        </div>
+    </template>
+
+<script>
+"use strict"        // check the code
+     
+// Global datastructures
+const copyButtonHue = 120;
+const clearButtonHue = 0;
+const fullySaturated = true;
+
+const clicked = new Map();
+const hues = new Map();
+
+const grades = new Map();
+const labelCategory = new Map();    // category associated with a label for quick lookup
+let forClipboard;
+// Setting up the feedback configurator - run once page is loaded
+function setup()
+    {
+    // a reference to the messages at the bottom and for the clipboard
+    forClipboard = document.createElement('div');
+    // attach spot for grade at the beginning of the message report
+    let gradeDiv = document.createElement('div');
+    gradeDiv.id = "grades";
+    forClipboard.appendChild(gradeDiv);  // bruk denne med karakter i kopi, kanskje midlertidig kopi trenger karakter. for loggen
+
+    // find unique categories and states
+    let categories = [...new Set(feedback.map(e => e.category))];
+    let states = [...new Set(feedback.map(e => e.status))];
+    // attach message headings
+    let messages = [document.createElement('div'),document.createElement('div')]; 
+    messages.forEach((e,i) => e.id = states[i]);
+    messages.forEach((e) => forClipboard.appendChild(e));
+    states.forEach((e,i) => {
+                            let h = document.createElement('h2');
+                            h.innerHTML = e.toUpperCase()+":";                                          
+                            messages[i].appendChild(h);
+                            });
+
+    // create category grid
+    ['headers'].concat(categories).forEach(e => {
+                            // insert structure
+                            let template = document.getElementById("category-template");
+                            let clone = template.content.cloneNode(true);
+                            let left = clone.children[0].children[0];
+                            let middle = clone.children[0].children[1];
+                            let right = clone.children[0].children[2];
+                            left.id = e+states[0];
+                            middle.innerHTML = e;
+                            right.id = e+states[1];
+                            document.body.appendChild(clone);
+                            });
+
+    // add header labels                        
+    document.getElementById('headers'+states[0]).innerHTML = states[0];
+    document.getElementById('headers'+states[1]).innerHTML = states[1];
+
+    // attach the messages at the bottom of the document    
+    document.body.appendChild(forClipboard);                              
+
+    // insert buttons and hidden messsages
+    feedback.forEach(e => {
+                            // create button                      
+                            let id = e.category+e.status;  
+                            let parent = document.getElementById(id);
+                            var button = document.createElement('button');
+                            button.innerHTML = e.label;
+                            button.id = e.label;
+                            button.title = "Grade: "+e.grade; // grade shown as tooltip
+                            button.value = e.message;
+                            clicked.set(e.label,false);
+                            let categoryNo = (e.category != undefined)? categories.indexOf(e.category):4;    // velger grønn kategori som default derom katoeri ikke er angitt
+                            const hue = 30*(categoryNo%12);
+                            hues.set(e.label,hue);
+                            grades.set(e.label,e.grade); 
+                            labelCategory.set(e.label,e.category);                       
+                            button.style.backgroundColor = colourString(hue,false);   
+                            // create messsage
+                            let message = document.createElement('p');
+                            message.id = "message"+e.label;
+                            message.innerHTML = e.message;
+                            message.style.display = "none";
+                            document.getElementById(e.status).appendChild(message);                  
+                            message.style.color =  colourString(hue,true,fullySaturated);        
+                            button.addEventListener("click", buttonToggle);                        
+                            parent.appendChild(button);
+                            });
+    }
+function buttonToggle() 
+    {   
+    const category = this.id;
+    let click = clicked.get(category);
+    click = !click;                     // endre tilstand
+    clicked.set(category,click);    
+    this.style.backgroundColor =  colourString(hues.get(category),click);  
+    document.getElementById("message"+category).style.display = click?"block":"none";  // toggle beskjed
+    // oppdatere kontrollknapper
+    const selected = [...clicked.values()].includes(true);
+    document.getElementById("copy").style.background = colourString(copyButtonHue,selected,fullySaturated);
+    document.getElementById("clear").style.background = colourString(clearButtonHue,selected,fullySaturated);
+    // vise karaktersett
+    document.getElementById("grades").innerHTML = makeGradeReport();
+    }
+// find grade for factor
+function gradeForFactor(gradeComponent)
+    {
+    return [...clicked].filter(([k,v]) => v == true)
+            .filter(([k,v]) => gradeComponent.depends.includes(labelCategory.get(k)))
+            .map(([k,v]) => grades.get(k));        
+    }
+function medianGrade(gradeList)
+    {
+    gradeList = gradeList.sort();
+    const noGrades = gradeList.length;
+    return (noGrades > 0)? gradeList[Math.floor((noGrades-1)/2)]:""; // velg ut den midterste som median        
+    }
+// make grade report
+function makeGradeReport()
+    {
+    return "<code>" +
+        assessment.map(e => 
+            {
+            let gradesList = gradeForFactor(e);
+            let finalGrade =  medianGrade(gradesList);
+            return "<span title=\"Grades: "+gradesList+"\">"+e.factor +"</span><br>"+finalGrade+"<br>";
+            })
+        .join("") 
+                
+                // debug info
+                +"<br>Selections: "
+                + [...clicked].map(([k,v],i) => (v == true)?i:-1)
+                        .filter(e => e >= 0)
+                        .join(", ")
+                +"<br>=======================================<br><br>"
+                + "</>";                        
+    }
+function copytoTclipboard()
+    {
+    // copy the feedback text into the clipboard
+    navigator.clipboard.writeText(forClipboard.innerText);
+    // indicate that the button has been pushed
+    document.getElementById("copy").style.background = colourString(copyButtonHue,false,fullySaturated);    
+    }    
+// find colour based on hue, lightness and degree of saturation 
+function colourString(hue,intensity, signalColour=false)
+    {
+    let saturationBrightness = (signalColour)? (intensity)?"100%,50%":"50%,70%"
+                                      :(intensity)?"100%,70%":"50%,30%";
+    return "hsl("+hue+","+saturationBrightness+")";        
+    }
+// Starting point: event handler to ensure DOM is loaded before start is called..
+window.addEventListener('DOMContentLoaded', (event) => setup());
+</script>
+
+</body>
+</html>
