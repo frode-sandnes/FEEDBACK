@@ -1,4 +1,5 @@
 const feedback = [
+// Overall impression
     {label:"Well written",message:"This is a  well-written manuscript. ",category:"manuscript",grade:"A" ,status:"Strengths"},
     {label:"Reflections",message:"The manuscript includes several convincing reflections. This is very postive.",category:"manuscript",grade:"A",status:"Strengths"},
     {label:"Very well written",message:"This is a very well-written manuscript.",category:"manuscript",grade:"A",status:"Strengths"},
@@ -6,6 +7,7 @@ const feedback = [
     {label:"Good manuscript",message:"This is a good manuscript.",category:"manuscript",grade:"C",status:"Strengths"},
     {label:"Well done!",message:"Well done!",category:"manuscript",grade:"A",status:"Strengths"},
 
+// Language
     {label:"Unclear manuscript",message:"The manuscript is a bit unclear and hard to understand.",category:"manuscript",grade:"D",status:"Points for improvement"},
     {label:"Structure?",message:"You could possibly have worked more with the structure of the presentation to make it more understandable.",category:"manuscript",grade:"D",status:"Points for improvement"},
     {label:"Few details",message:"There could me more meat on the bone in the manuscript. You could have provided more details.",category:"manuscript",grade:"D" ,status:"Points for improvement"},
@@ -17,7 +19,7 @@ const feedback = [
     {label:"Stolen image?",message:"An image appears taken from somewhere else without credit. Remember to credit the source of other's work to prevent being accused of plagiarism.",category:"manuscript",grade:"F" ,status:"Points for improvement"},
    {label:"Very good",message:"Not much to critisize here. Great work!",category:"manuscript",grade:"A" ,status:"Points for improvement"},
 
-// problemstilling
+// Research questions
     {label:"Exciting RQ",message:"You have landed on a exceptionally exciting research question.",category:"research question",grade:"A",status:"Strengths"},
     {label:"Very good RQ",message:"You have presented a very good research question.",category:"research question",grade:"B",status:"Strengths"},
     {label:"Original RQ",message:"The research question is very original.",category:"research question",grade:"A",status:"Strengths"},
@@ -27,11 +29,12 @@ const feedback = [
     {label:"Unfair RQ",message:"The reserach question seems somewhat unfair or biased.",category:"research question",grade:"E" ,status:"Points for improvement"},
     {label:"Unclear RQ",message:"It is unclear what you tried to investigate.",category:"research question",grade:"F" ,status:"Points for improvement"},
 
-// eksperiment
+// Experiment
     {label:"Exceptional method",message:"The description of the methodology is exceptional.",category:"method",grade:"A",status:"Strengths"},
     {label:"Very good method",message:"The description of the methodology is very good.",category:"method",grade:"B",status:"Strengths"},
     {label:"Good Method",message:"he description of the methodology is good.",category:"method",grade:"C",status:"Strengths"},
 
+// Method
     {label:"Unclear method",message:"It is unclear what the method entailed.",category:"method",grade:"F" ,status:"Points for improvement"},
     {label:"Unclear experimental design",message:"It is unclear what the experimental design was.",category:"method",grade:"D" ,status:"Points for improvement"},
     {label:"Few details about the method",message:"There are few details about the method.",category:"method",grade:"F" ,status:"Points for improvement"},
@@ -52,7 +55,7 @@ const feedback = [
     {label:"Little discussion",message:"There is too little discussion.",category:"discussion",grade:"C" ,status:"Points for improvement"},
     {label:"No discussion",message:"There is no discussion.",category:"discussion",grade:"F" ,status:"Points for improvement"},
 
-// Reserach
+// Related work
     {label:"Exceptional related works",message:"The related work gives an exceptionally relevant and complete coverage of the field.",category:"related work",grade:"A" ,status:"Strengths"},
     {label:"Very good related works",message:"Many relevant works are cited.",category:"related work",grade:"B" ,status:"Strengths"},
     {label:"Good related works",message:"You have cited relevant works.",category:"related work",grade:"C" ,status:"Strengths"},
