@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tilbakemedlinger</title>
+    <style>
+        body
+            {
+            color:grey;
+            background-color:black;
+            font-family:sans-serif;
+            }
+        .wrapper 
+            {
+            display: grid;
+            grid-template-columns: 34% 14% 49%;
+            }
+        .left 
+            {
+            text-align: right;  
+            padding-bottom: 2%;
+            }
+        .center
+            {
+            text-align: center;                  
+            }
+        .right      
+            {
+            text-align: left;  
+            padding-bottom: 2%;            
+            }
+        .custom-file-upload 
+            {
+            cursor: pointer;
+            color: black;
+            background-color: hsl(120, 100%, 30%);
+            float: right;
+            }                
+        input[type="file"] 
+            {
+            display: none;
+            }   
+    </style>
+
+    <script type="text/javascript" src="jszip.js"></script>
+    <script type="text/javascript" src="xlsx.js"></script>
+    <script type="text/javascript" src="xlsx.full.min.js"></script>  
+
+</head>
+
+
+<body>
+    <button id="clearLocalStore" onclick="clearLocalStore()" style="background:hsl(180,50%,70%); float: right;">Clear localstore</button>
+    <label for="file-selector" class="custom-file-upload"><span>Upload definition file</span></label>
+    <input type="file" id="file-selector" accept=".xlsx, .xls, .csv" >
+    <h1 id="mainHeading"></h1>
+    <button id="copy" onclick="copyAll()" style="background:hsl(120,50%,70%)">Copy all</button>
+    <button id="clear" onclick="document.location.reload(true)" style="background:hsl(0,50%,70%)">Clear page</button>
+    <input type="text" id="query" oninput="input();" style="background:darkslategray;color:lime;">
+    <span style="color:lime"><span id="hits">0</span> selected</span>
+ 
+    <div id="topPosition"></div>
+
+    <template id="category-template">
+        <div class="wrapper">
+            <div class="left"></div>
+            <div class="center"></div>
+            <div class="right"></div>
+        </div>
+    </template>
+
+
+<script>
+"use strict"        // check the code
+
+let feedback = [];
+let queryInputList = [];
+
+// Bootstrapping
+window.addEventListener('DOMContentLoaded', (event) => setup());
+function setup()
+    {
+    // Add file load handler
+    const fileSelector = document.getElementById("file-selector");
+	fileSelector.addEventListener('change', (event) => loadFile(event));    
+    retrieve();    
+    }
+// retrieving file contents in excel format	as JSON object
+function loadFile(event)
+    {
+    const files = event.target.files;
+
+    for (var i = 0, f; f = files[i]; i++) 
+        {			
+        var reader = new FileReader();
+
+        let {name} = f;
+        let extensionIdx = name.lastIndexOf(".");
+        name = name.substring(0, extensionIdx);    // remove the extension
+        
+        reader.onload = (function(theFile) 
+            {
+            return function(e) 
+                {
+                var workbook = XLSX.read(e.target.result, {type: 'binary'});	
+                for (var sheetName of workbook.SheetNames)
+                    {
+                    feedback = XLSX.utils.sheet_to_row_object_array(workbook.Sheets[sheetName]);
+//                    console.log("loaded feedback:");
+//                    setupPage(name);
+                    store(name);
+                    location.reload();
+                    }		
+                };
+            })(f);		
+        reader.readAsBinaryString(f);
+        }
+    }
+
+// Global datastructures
+const copyButtonHue = 120;
+const clearButtonHue = 0;
+const fullySaturated = true;
+
+const clicked = new Map();
+const hues = new Map();
+
+const grades = new Map();
+const labelCategory = new Map();    // category associated with a label for quick lookup
+const topPosition = document.getElementById("topPosition");
+let states = [];
+let forClipboard = "";
+
+// check that the input file makes sense.
+function consistencyCheck()
+    {
+    // first see if all messages are unique
+    const noMessages = feedback.length;
+    const messages = feedback.map(({message}) => message);
+    const messageCounts = messages.reduce(function (acc, curr) 
+            {
+            return acc[curr] ? ++acc[curr] : acc[curr] = 1, acc
+            }, {});
+//console.log(messageCounts);            
+    const duplicateMessages = messages.filter(message => messageCounts[message] > 1);
+    console.log("Duplicate messages:", duplicateMessages); 
+    // check for incorrect category spellings
+    const categories =  feedback.map(({category}) => category);
+    const categoryCounts = categories.reduce(function (acc, curr) 
+            {
+            return acc[curr] ? ++acc[curr] : acc[curr] = 1, acc
+            }, {});
+    const singleCategories = categories.filter(category => categoryCounts[category] < 2);
+//    console.log(categoryCounts);            
+    console.log("Single categories:", singleCategories); 
+    }
+
+function setupPage(name)
+    {
+    consistencyCheck();
+    document.getElementById("mainHeading").innerText = name;
+//    console.log(JSON.stringify(feedback, null, 2)); 
+    // a reference to the messages at the bottom and for the clipboard
+    forClipboard = document.createElement('div');
+    // attach spot for grade at the beginning of the message report
+    let gradeDiv = document.createElement('div');
+    gradeDiv.id = "grades";
+    gradeDiv.style.color = "white";
+//    gradeDiv.style.background = "darkgray";
+    forClipboard.appendChild(gradeDiv);  // bruk denne med karakter i kopi, kanskje midlertidig kopi trenger karakter. for loggen
+
+    // find unique categories and states
+    let categories = [...new Set(feedback.map(e => e.category))];
+    states = [...new Set(feedback.map(e => e.status))];
+    // attach message headings
+    let messages = [document.createElement('div'),document.createElement('div')]; 
+    messages.forEach((e,i) => e.id = states[i]);
+    messages.forEach((e) => forClipboard.appendChild(e));
+    states.forEach((e,i) => {
+                        let h = document.createElement('h2');
+                        h.innerHTML = e.toUpperCase()+":";                                          
+                        messages[i].appendChild(h);
+                        let messagePart = document.createElement("div");
+                        messages[i].appendChild(messagePart);
+                        });
+
+    // create category grid
+    ['headers'].concat(categories).forEach(e => {
+                        // insert structure
+                        let template = document.getElementById("category-template");
+                        let clone = template.content.cloneNode(true);
+                        let left = clone.children[0].children[0];
+                        let middle = clone.children[0].children[1];
+                        let right = clone.children[0].children[2];
+                        left.id = e+states[0];
+                        middle.innerHTML = e;
+                        right.id = e+states[1];
+                        topPosition.appendChild(clone);
+                        });
+
+    // add header labels                        
+    document.getElementById('headers'+states[0]).innerHTML = states[0];
+    document.getElementById('headers'+states[1]).innerHTML = states[1];
+
+    // attach the messages at the bottom of the document    
+    topPosition.appendChild(forClipboard);                              
+
+    // insert buttons and hidden messsages
+    feedback.forEach(e => {
+                        // create button                      
+                        let id = e.category+e.status;  
+                        let parent = document.getElementById(id);
+
+                        var button = document.createElement('button');
+                        button.innerHTML = e.label;
+                        button.id = e.label;
+                        button.title = "Grade: "+e.grade; // grade shown as tooltip
+                        button.value = e.message;
+                        clicked.set(e.label,false);
+                        let categoryNo = (e.category != undefined)? categories.indexOf(e.category):4;    // velger grønn kategori som default derom katoeri ikke er angitt
+                        const hue = 30*(categoryNo%12);
+                        hues.set(e.label,hue);
+                        grades.set(e.label,e.grade); 
+                        labelCategory.set(e.label,e.category);                       
+                        button.style.backgroundColor = colourString(hue,false);   
+                        // create messsage
+                        let message = document.createElement('p');
+                        message.id = "message"+e.label;
+                        message.innerHTML = e.message;
+                        message.style.display = "none";
+                        message.onclick = ((event) => 
+                                {
+                                let element = event.target;
+                                navigator.clipboard.writeText(element.innerText);
+                                });
+                        document.getElementById(e.status).getElementsByTagName("div")[0].appendChild(message);                  
+                        message.style.color =  colourString(hue,true,fullySaturated);        
+                        button.addEventListener("click", buttonToggle);                        
+                        parent.appendChild(button);
+                        });
+    // for use with query
+    queryInputList = feedback.map((e,i) => ({id:"message"+e.label, message:e.message+" "+e.label+" "+e.category, label:e.label}));
+
+    states.forEach(state =>
+            {
+            let copyButton = document.createElement("button");
+            copyButton.id = "copy" + state;
+            // passing argument to event handler
+            copyButton.addEventListener('click', (event) => copyState(state));
+            copyButton.style.background = "hsl(120,50%,70%)";
+            copyButton.innerText = "Copy "+ state;
+            document.body.appendChild(copyButton); 
+            });
+    }
+
+function copyState(state)
+    {
+    // putte inn i clipboard
+    navigator.clipboard.writeText(document.getElementById(state).getElementsByTagName("div")[0].innerText);   
+    document.getElementById("copy").style.background = colourString(copyButtonHue,false,fullySaturated);    
+    document.getElementById("copy"+state).style.background = colourString(copyButtonHue,false,fullySaturated);    
+    }
+
+function store(name)
+    {
+//console.log("storing ",name,feedback);        
+    privateLocalStoreSetItem("name", name);
+    privateLocalStoreSetItem("feedback", JSON.stringify(feedback));
+    }
+function retrieve()
+    {
+    let name = privateLocalStoreGetItem("name");
+//console.log("retrieving ", name);    
+    if (name !== null)
+        {
+        feedback = JSON.parse(privateLocalStoreGetItem("feedback"));
+        setupPage(name);
+        }
+    }
+function clearLocalStore()
+    {
+    privateLocalStoreRemoveItem("name");    
+    privateLocalStoreRemoveItem("feedback");   
+    feedback = []; 
+//    setupPage("");  
+    location.reload();  
+    }    
+function prefix()
+	{
+	const {pathname} = window.location;
+	return pathname;
+	}	
+function privateLocalStoreGetItem(key)
+	{
+	return localStorage.getItem(prefix() + key); 
+    // converted to cookies
+/*    let name = key + "=";
+    let decodedCookie = decodeURIComponent(document.cookie);
+console.log("decodedCookie",decodedCookie);    
+    let ca = decodedCookie.split(';');
+    for(let i = 0; i <ca.length; i++) 
+        {
+        let c = ca[i];
+        while (c.charAt(0) == ' ') 
+            {
+            c = c.substring(1);
+            }
+        if (c.indexOf(name) == 0) 
+            {
+            return c.substring(name.length, c.length);
+            }
+        }
+    return "";*/
+	}
+function privateLocalStoreRemoveItem(key)
+	{
+	localStorage.removeItem(prefix() + key);
+//    converted to cookies
+/*    const d = new Date();
+    d.setTime(d.getTime() - 1000);
+    let expires = "expires="+ d.toUTCString();
+    document.cookie = key + "=" + ";" + expires + ";path=/";*/
+	}	
+function privateLocalStoreSetItem(key, value)
+	{
+	localStorage.setItem(prefix() + key, value);	
+    // replaced with cookie lasting one month
+    // need more work, as some problem - later
+/*    const d = new Date();
+    const expiresInDays = 30;
+    d.setTime(d.getTime() + (expiresInDays * 24 * 60 * 60 * 1000));
+    let expires = "expires="+ d.toUTCString();
+    document.cookie = key + "=" + value + ";" + expires + ";path=/";
+console.log("cookie",document.cookie);   */ 
+	}
+
+function buttonToggle() 
+    {   
+    const category = this.id;
+    let click = clicked.get(category);
+    click = !click;                     // endre tilstand
+    clicked.set(category,click);    
+    this.style.backgroundColor =  colourString(hues.get(category),click);  
+    document.getElementById("message"+category).style.display = click?"block":"none";  // toggle beskjed
+    // oppdatere kontrollknapper
+    const selected = [...clicked.values()].includes(true);
+    document.getElementById("copy").style.background = colourString(copyButtonHue,selected,fullySaturated);
+    states.forEach(state => document.getElementById("copy" + state).style.background = colourString(copyButtonHue,selected,fullySaturated));    
+
+    document.getElementById("clear").style.background = colourString(clearButtonHue,selected,fullySaturated);
+    // vise karaktersett
+    document.getElementById("grades").innerHTML = makeGradeReport();
+    // update counter
+    document.getElementById("hits").innerText = [...clicked.values()].filter(v => v).length;
+    }
+
+function medianGrade(gradeList)
+    {
+    gradeList = gradeList.sort();
+    const noGrades = gradeList.length;
+    return (noGrades > 0)? gradeList[Math.floor((noGrades-1)/2)]:""; // velg ut den midterste som median        
+    }
+// make grade report
+function makeGradeReport()
+    {
+    let gradeList = [...clicked].filter(([k,v]) => v == true)
+        .map(([k,v]) => grades.get(k));           
+    let median = medianGrade(gradeList);
+    return "Parts: " + gradeList + ", Median: "+median;
+    }    
+
+function copyAll()
+    {
+    // putte inn i clipboard
+    navigator.clipboard.writeText(forClipboard.innerText);    
+    document.getElementById("copy").style.background = colourString(copyButtonHue,false,fullySaturated);    
+    states.forEach(state => document.getElementById("copy" + state).style.background = colourString(copyButtonHue,false,fullySaturated));
+    }
+
+// find colour based on hue, lightness and degree of saturation 
+function colourString(hue,intensity, signalColour=false)
+    {
+    let saturationBrightness = (signalColour)? (intensity)?"100%,50%":"50%,70%"
+                                      :(intensity)?"100%,70%":"50%,30%";
+    return "hsl("+hue+","+saturationBrightness+")";        
+    }
+
+function setState(id, label, click)
+    {
+    clicked.set(label,click);  
+    let button = document.getElementById(label);  
+    button.style.backgroundColor =  colourString(hues.get(label), click);  
+    document.getElementById(id).style.display = click?"block":"none";  // toggle beskjed
+    // oppdatere kontrollknapper
+//    const selected = [...clicked.values()].includes(true);
+//    document.getElementById("copy").style.background = colourString(copyButtonHue,selected,fullySaturated);
+//    states.forEach(state => document.getElementById("copy" + state).style.background = colourString(copyButtonHue,selected,fullySaturated));    
+
+  //  document.getElementById("clear").style.background = colourString(clearButtonHue,selected,fullySaturated);
+    // vise karaktersett
+  //  document.getElementById("grades").innerHTML = makeGradeReport();
+
+    }
+
+function input()
+    {
+    // clear
+    queryInputList.forEach(({id, label}) => 
+                {
+                setState(id,label,false);
+                });
+    let query = document.getElementById("query").value;
+    let keywords = query.split(" ");
+    let showMessages = queryInputList;
+    keywords.forEach(keyword => 
+        {
+        showMessages = showMessages.filter(({message}) => message.includes(keyword));
+//    console.log(keyword,showMessages.length);
+        });
+//    messages.filter(({message}) => message.includes(keyword));
+//console.log(showMessages);    
+    showMessages.forEach(({id, label}) => 
+                {
+                setState(id,label,true);
+                });
+    // show the counter
+    document.getElementById("hits").innerText = showMessages.length;
+//    console.log(keywords);
+    }
+
+</script>
+
+</body>
+</html>
+
